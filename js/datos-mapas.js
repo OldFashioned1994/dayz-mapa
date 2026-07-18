@@ -31,18 +31,23 @@ window.MAPAS = {
 };
 
 /* Instalaciones (datos oficiales de Bohemia: DayZ-Central-Economy).
-   mz = zoom mínimo para mostrar el ícono. */
+   mz = zoom mínimo para mostrar el ícono. def:false = apagada por defecto. */
 window.TIPOS_INSTALACION = {
   toxica: { emoji: "☣️", nombre: "Zona tóxica (NBC)", mz: 3 },
   militar: { emoji: "🪖", nombre: "Instalación militar", mz: 4 },
   heli: { emoji: "🚁", nombre: "Posible heli caído", mz: 5 },
+  spawn: { emoji: "🧍", nombre: "Spawn de jugadores", mz: 3 },
   combustible: { emoji: "⛽", nombre: "Estación de servicio", mz: 4 },
   hospital: { emoji: "🏥", nombre: "Hospital", mz: 5 },
   policia: { emoji: "🚓", nombre: "Comisaría", mz: 5 },
   agua: { emoji: "💧", nombre: "Bomba de agua", mz: 6 },
   castillo: { emoji: "🏰", nombre: "Castillo", mz: 4 },
   iglesia: { emoji: "⛪", nombre: "Iglesia", mz: 6 },
+  faro: { emoji: "🗼", nombre: "Faro", mz: 5 },
   termal: { emoji: "♨️", nombre: "Aguas termales", mz: 4 },
+  vehiculo: { emoji: "🚙", nombre: "Posible spawn de vehículo", mz: 6, def: false },
+  bote: { emoji: "🛶", nombre: "Posible spawn de bote", mz: 6, def: false },
+  caza: { emoji: "🦌", nombre: "Torre de caza", mz: 7, def: false },
 };
 
 /* Tipos de marcador del squad */

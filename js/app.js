@@ -157,6 +157,7 @@
   function crearStoreFirebase(codigo, cb) {
     const db = firebase.database();
     const raiz = db.ref(`rooms/${codigo}`);
+    const conRef = db.ref(".info/connected");
     let refsMapa = []; // refs con listeners del mapa actual
 
     const jugRef = raiz.child(`dayz/jugadores/${E.uid}`);
@@ -164,14 +165,32 @@
     return {
       esSala: true,
       codigo,
-      async iniciar(colorPreferido) {
+      async iniciar() {
+        // color único: mirar los jugadores que YA están en la sala
+        const snap = await raiz.child("dayz/jugadores").get();
+        const existentes = snap.val() || {};
+        const usados = Object.entries(existentes)
+          .filter(([uid]) => uid !== E.uid)
+          .map(([, j]) => j.c);
+        const previo = existentes[E.uid] && existentes[E.uid].c;
+        const color =
+          previo && !usados.includes(previo)
+            ? previo
+            : PALETA.find((c) => !usados.includes(c)) || PALETA[Math.floor(Math.random() * PALETA.length)];
+
         await jugRef.update({
           n: E.nombre,
-          c: colorPreferido,
+          c: color,
           online: true,
           ts: firebase.database.ServerValue.TIMESTAMP,
         });
-        jugRef.child("online").onDisconnect().set(false);
+        // presencia robusta: al reconectarse, volver a marcarse online y re-armar el onDisconnect
+        conRef.on("value", (s) => {
+          if (s.val() === true) {
+            jugRef.child("online").onDisconnect().set(false);
+            jugRef.update({ online: true });
+          }
+        });
         raiz.child("dayz/jugadores").on("value", (s) => cb.jugadores(s.val() || {}));
         raiz.child("dayz/notas").on("value", (s) => cb.notas(s.val() || {}));
       },
@@ -211,6 +230,7 @@
         refsMapa.forEach((r) => r.off());
         raiz.child("dayz/jugadores").off();
         raiz.child("dayz/notas").off();
+        conRef.off();
         jugRef.child("online").onDisconnect().cancel();
         jugRef.child("online").set(false);
       },
@@ -274,6 +294,12 @@
     mapa.on("moveend", () => { escribirHash(); if (ES_TACTIL) mostrarCoords(mapa.getCenter()); });
     mapa.on("mousemove", (ev) => mostrarCoords(ev.latlng));
     mapa.on("click", clickEnMapa);
+    // long-press en táctil (y clic derecho en desktop) para marcar sin toques accidentales
+    mapa.on("contextmenu", (ev) => {
+      if (ev.originalEvent) L.DomEvent.preventDefault(ev.originalEvent);
+      if (E.modo !== "normal") return;
+      intentarMarcador(ev.latlng);
+    });
 
     refrescarLugares();
     escribirHash();
@@ -282,7 +308,10 @@
   function mostrarCoords(latlng) {
     const x = latlng.lng, z = latlng.lat;
     const size = MAPAS[E.mapaKey].size;
-    if (x < 0 || z < 0 || x > size || z > size) return;
+    if (x < 0 || z < 0 || x > size || z > size) {
+      $("pie-coords").textContent = "— / —";
+      return;
+    }
     $("pie-coords").textContent = `${fmtCoords(x, z)} · cuadr. ${cuadricula(x, z)}`;
   }
 
@@ -325,6 +354,12 @@
     try { return JSON.parse(localStorage.getItem("dayz_inst")) || {}; } catch { return {}; }
   }
 
+  function instActiva(cat) {
+    const guardado = instActivas()[cat];
+    if (guardado !== undefined) return guardado;
+    return TIPOS_INSTALACION[cat].def !== false;
+  }
+
   function prepararInstalaciones(mapaKey) {
     E.instalaciones = [];
     E.capasInst = {};
@@ -354,7 +389,7 @@
         );
       });
 
-      puntos.forEach(([x, z, n]) => {
+      puntos.forEach(([x, z, n, zona]) => {
         const div = document.createElement("div");
         div.className = "inst";
         div.textContent = t.emoji;
@@ -366,7 +401,8 @@
         }
         const icono = L.divIcon({ className: "inst-icono", html: div.outerHTML, iconSize: [0, 0] });
         const marker = L.marker([z, x], { icon: icono, keyboard: false });
-        marker.bindTooltip(t.nombre + (n > 1 ? ` ×${n}` : ""), { direction: "top", offset: [0, -10] });
+        const etiqueta = t.nombre + (zona ? ` · ${zona}` : "") + (n > 1 ? ` ×${n}` : "");
+        marker.bindTooltip(etiqueta, { direction: "top", offset: [0, -10] });
         E.instalaciones.push({ marker, capa, mz: t.mz });
       });
     });
@@ -376,9 +412,8 @@
   function refrescarInstalaciones() {
     if (!E.mapa || !E.capasInst) return;
     const zoom = E.mapa.getZoom();
-    const activas = instActivas();
     Object.entries(E.capasInst).forEach(([cat, capa]) => {
-      const activa = activas[cat] !== false;
+      const activa = instActiva(cat);
       if (activa && !E.mapa.hasLayer(capa)) E.mapa.addLayer(capa);
       if (!activa && E.mapa.hasLayer(capa)) E.mapa.removeLayer(capa);
     });
@@ -392,14 +427,13 @@
   function pintarTogglesInstalaciones() {
     const cont = $("capas-instalaciones");
     cont.textContent = "";
-    const activas = instActivas();
     Object.entries(TIPOS_INSTALACION).forEach(([cat, t]) => {
       if (!E.capasInst || !E.capasInst[cat]) return; // el mapa actual no tiene esta categoría
       const label = document.createElement("label");
       label.className = "check";
       const chk = document.createElement("input");
       chk.type = "checkbox";
-      chk.checked = activas[cat] !== false;
+      chk.checked = instActiva(cat);
       chk.addEventListener("change", () => {
         const a = instActivas();
         a[cat] = chk.checked;
@@ -414,10 +448,19 @@
   }
 
   /* ----- Click en el mapa según el modo ----- */
-  function clickEnMapa(ev) {
-    const x = ev.latlng.lng, z = ev.latlng.lat;
+  function dentroDelMapa(latlng) {
     const size = MAPAS[E.mapaKey].size;
-    if (x < 0 || z < 0 || x > size || z > size) return;
+    return latlng.lng >= 0 && latlng.lat >= 0 && latlng.lng <= size && latlng.lat <= size;
+  }
+
+  function intentarMarcador(latlng) {
+    if (!dentroDelMapa(latlng)) return;
+    abrirDialogoMarcador(latlng.lng, latlng.lat);
+  }
+
+  function clickEnMapa(ev) {
+    if (!dentroDelMapa(ev.latlng)) return;
+    const x = ev.latlng.lng, z = ev.latlng.lat;
 
     if (E.modo === "medir") { agregarPuntoMedicion(ev.latlng); return; }
     if (E.modo === "pos") {
@@ -426,6 +469,8 @@
       toast("📌 Posición marcada. Arrastrá tu punto para moverlo.");
       return;
     }
+    // en táctil, el tap simple no marca (se usa long-press) para evitar toques accidentales
+    if (ES_TACTIL) return;
     abrirDialogoMarcador(x, z);
   }
 
@@ -610,6 +655,7 @@
   function pintarPosiciones(datos) {
     posDatos = datos || {};
     if (!E.mapa) return;
+    if (E.arrastrando) return; // no recrear los pines mientras arrastrás el tuyo
     const capa = E.capas.jugadores;
     capa.clearLayers();
     Object.entries(posDatos).forEach(([uid, p]) => {
@@ -627,7 +673,9 @@
       const icono = L.divIcon({ className: "jug-icono", html: pin.outerHTML, iconSize: [0, 0] });
       const marker = L.marker([p.z, p.x], { icon: icono, draggable: propio, zIndexOffset: 500 });
       if (propio) {
+        marker.on("dragstart", () => { E.arrastrando = true; });
         marker.on("dragend", () => {
+          E.arrastrando = false;
           const ll = marker.getLatLng();
           E.store.setPos(Math.round(ll.lng), Math.round(ll.lat));
         });
@@ -713,11 +761,11 @@
     for (let i = 1; i < E.medirPuntos.length; i++) {
       total += E.mapa.distance(E.medirPuntos[i - 1], E.medirPuntos[i]);
     }
-    const min = total / 6 / 60; // ~6 m/s trotando
+    const min = total / 5.3 / 60; // trote sostenido ~5,3 m/s
     const texto =
       total >= 1000
-        ? `${(total / 1000).toFixed(2)} km · ~${Math.round(min)} min trotando`
-        : `${Math.round(total)} m · ~${Math.max(1, Math.round(min))} min trotando`;
+        ? `${(total / 1000).toFixed(2)} km · ~${Math.round(min)} min al trote`
+        : `${Math.round(total)} m · ~${Math.max(1, Math.round(min))} min al trote`;
     if (E.medirTip) E.capas.medir.removeLayer(E.medirTip);
     E.medirTip = L.marker(latlng, { interactive: false, icon: L.divIcon({ className: "", iconSize: [0, 0] }) })
       .bindTooltip(texto, { permanent: true, className: "medir-tip", direction: "top", offset: [0, -8] })
@@ -810,10 +858,6 @@
     notas: pintarNotas,
   };
 
-  function firebaseDisponible() {
-    return typeof firebase !== "undefined" && firebase.apps !== undefined;
-  }
-
   async function crearSala(mapaKey) {
     const db = firebase.database();
     for (let intento = 0; intento < 5; intento++) {
@@ -842,16 +886,11 @@
     return datos;
   }
 
-  function colorLibre() {
-    const usados = Object.values(jugadoresDatos).map((j) => j.c);
-    return PALETA.find((c) => !usados.includes(c)) || PALETA[Math.floor(Math.random() * PALETA.length)];
-  }
-
   async function entrarEnSala(codigo, mapaKey) {
     if (E.store) E.store.salir();
     E.sala = codigo;
     E.store = crearStoreFirebase(codigo, callbacks);
-    await E.store.iniciar(colorLibre());
+    await E.store.iniciar();
     E.store.suscribirMapa(mapaKey);
     localStorage.setItem("dayz_sala", codigo);
     $("sala-codigo").textContent = codigo.split("").join(" ");
@@ -909,6 +948,10 @@
     crearMapa(mapaKey, centro, zoom);
     $("sel-mapa").value = mapaKey;
     $("in-buscar").placeholder = MAPAS[mapaKey].lugares ? "Buscar lugar…" : "Buscar (solo en Chernarus+)";
+    if (ES_TACTIL && !localStorage.getItem("dayz_hint_lp")) {
+      localStorage.setItem("dayz_hint_lp", "1");
+      toast("💡 Mantené apretado el mapa para poner un marcador", 4500);
+    }
   }
 
   function guardarNombre() {
@@ -1039,7 +1082,22 @@
     });
     $("btn-cambiar-sala").addEventListener("click", () => {
       cerrarPaneles();
+      $("btn-volver").classList.remove("oculto");
       $("inicio").classList.remove("oculto");
+    });
+    $("btn-volver").addEventListener("click", () => $("inicio").classList.add("oculto"));
+
+    /* ---- navegación por hash (links compartidos con la app ya abierta) ---- */
+    window.addEventListener("hashchange", () => {
+      if (!E.mapa) return;
+      const h = leerHash();
+      if (h.m && MAPAS[h.m] && h.m !== E.mapaKey) cambiarMapa(h.m);
+      if (h.c) {
+        const [x, z] = h.c.split(",").map(Number);
+        if (isFinite(x) && isFinite(z)) {
+          E.mapa.setView([z, x], h.z && isFinite(+h.z) ? +h.z : E.mapa.getZoom());
+        }
+      }
     });
 
     /* ---- notas ---- */
@@ -1085,6 +1143,7 @@
         cerrarDialogoMarcador();
         cerrarPaneles();
         if (E.modo !== "normal") ponerModo("normal");
+        if (E.mapa && !$("inicio").classList.contains("oculto")) $("inicio").classList.add("oculto");
       }
     });
 

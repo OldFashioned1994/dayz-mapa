@@ -1,5 +1,5 @@
 /* Service worker: cachea la cáscara de la app y los tiles ya vistos. */
-const VERSION = "mapa-squad-v2";
+const VERSION = "mapa-squad-v3";
 const CACHE_SHELL = VERSION + "-shell";
 const CACHE_TILES = VERSION + "-tiles";
 
@@ -67,8 +67,10 @@ self.addEventListener("fetch", (ev) => {
   ev.respondWith(
     fetch(ev.request)
       .then((resp) => {
-        const copia = resp.clone();
-        caches.open(CACHE_SHELL).then((c) => c.put(ev.request, copia));
+        if (resp.ok) {
+          const copia = resp.clone();
+          caches.open(CACHE_SHELL).then((c) => c.put(ev.request, copia));
+        }
         return resp;
       })
       .catch(() =>

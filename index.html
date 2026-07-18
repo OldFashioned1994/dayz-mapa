@@ -6,6 +6,12 @@
   <title>Mapa Squad — DayZ en español</title>
   <meta name="description" content="Mapa interactivo de DayZ en español con marcadores compartidos en tiempo real para tu squad. Chernarus+, Livonia y Sakhal." />
   <meta name="theme-color" content="#0b0e11" />
+  <meta property="og:title" content="Mapa Squad — DayZ en español" />
+  <meta property="og:description" content="Mapa de DayZ en español con marcadores compartidos en vivo. Creá una sala, pasá el código y coordiná con tu squad." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://oldfashioned1994.github.io/dayz-mapa/" />
+  <meta property="og:image" content="https://oldfashioned1994.github.io/dayz-mapa/assets/iconos/icono-512.png" />
+  <meta name="twitter:card" content="summary" />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="assets/iconos/icono-192.png" />
   <link rel="apple-touch-icon" href="assets/iconos/icono-192.png" />
@@ -37,10 +43,11 @@
       <div class="inicio-acciones">
         <button id="btn-crear" class="btn btn-primario">➕ Crear sala</button>
         <div class="unirse">
-          <input id="in-codigo" type="text" maxlength="4" placeholder="CÓDIGO" autocomplete="off" />
+          <input id="in-codigo" type="text" maxlength="4" placeholder="CÓDIGO" autocomplete="off" autocapitalize="characters" spellcheck="false" />
           <button id="btn-unirse" class="btn">Unirse</button>
         </div>
         <button id="btn-solo" class="btn btn-fantasma">Explorar solo (sin sala)</button>
+        <button id="btn-volver" class="btn btn-fantasma oculto">← Volver al mapa</button>
       </div>
 
       <p id="inicio-error" class="inicio-error oculto"></p>
@@ -62,11 +69,11 @@
       </div>
     </div>
     <div class="barra-der">
-      <button id="btn-regla" class="icono" title="Medir distancia">📏</button>
-      <button id="btn-pos" class="icono" title="Marcar mi posición">📌</button>
-      <button id="btn-capas" class="icono" title="Capas del mapa">🗺️</button>
-      <button id="btn-notas" class="icono" title="Notas del squad">📝</button>
-      <button id="btn-sala" class="icono" title="Sala / jugadores">👥<span id="sala-badge" class="badge oculto"></span></button>
+      <button id="btn-regla" class="icono" title="Medir distancia" aria-label="Medir distancia">📏</button>
+      <button id="btn-pos" class="icono" title="Marcar mi posición" aria-label="Marcar mi posición">📌</button>
+      <button id="btn-capas" class="icono" title="Capas del mapa" aria-label="Capas del mapa">🗺️</button>
+      <button id="btn-notas" class="icono" title="Notas del squad" aria-label="Notas del squad">📝</button>
+      <button id="btn-sala" class="icono" title="Sala / jugadores" aria-label="Sala y jugadores">👥<span id="sala-badge" class="badge oculto"></span></button>
     </div>
   </header>
 
