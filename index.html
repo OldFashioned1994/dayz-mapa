@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Mapa Squad — DayZ en español</title>
+  <meta name="description" content="Mapa interactivo de DayZ en español con marcadores compartidos en tiempo real para tu squad. Chernarus+, Livonia y Sakhal." />
+  <meta name="theme-color" content="#0b0e11" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="assets/iconos/icono-192.png" />
+  <link rel="apple-touch-icon" href="assets/iconos/icono-192.png" />
+  <link rel="stylesheet" href="js/vendor/leaflet/leaflet.css" />
+  <link rel="stylesheet" href="css/estilo.css" />
+</head>
+<body>
+
+  <!-- ===== Pantalla de inicio ===== -->
+  <div id="inicio" class="inicio">
+    <div class="inicio-caja">
+      <h1 class="logo">☣ MAPA <span>SQUAD</span></h1>
+      <p class="sub">Mapa de DayZ en español · marcadores compartidos en vivo</p>
+
+      <label class="campo">
+        <span>Tu nombre</span>
+        <input id="in-nombre" type="text" maxlength="16" placeholder="Superviviente" autocomplete="off" />
+      </label>
+
+      <label class="campo">
+        <span>Mapa</span>
+        <select id="in-mapa">
+          <option value="chernarusplus">Chernarus+</option>
+          <option value="livonia">Livonia</option>
+          <option value="sakhal">Sakhal</option>
+        </select>
+      </label>
+
+      <div class="inicio-acciones">
+        <button id="btn-crear" class="btn btn-primario">➕ Crear sala</button>
+        <div class="unirse">
+          <input id="in-codigo" type="text" maxlength="4" placeholder="CÓDIGO" autocomplete="off" />
+          <button id="btn-unirse" class="btn">Unirse</button>
+        </div>
+        <button id="btn-solo" class="btn btn-fantasma">Explorar solo (sin sala)</button>
+      </div>
+
+      <p id="inicio-error" class="inicio-error oculto"></p>
+
+      <p class="credito">
+        Tiles © <a href="https://dayz.xam.nu" target="_blank" rel="noopener">Xam.nu</a> ·
+        lugares: iZurvive · proyecto de fans, no oficial · DayZ © Bohemia Interactive
+      </p>
+    </div>
+  </div>
+
+  <!-- ===== Barra superior ===== -->
+  <header id="barra" class="barra oculto">
+    <div class="barra-izq">
+      <span class="mini-logo" title="Mapa Squad">☣</span>
+      <div class="buscador">
+        <input id="in-buscar" type="text" placeholder="Buscar lugar…" autocomplete="off" />
+        <div id="buscar-resultados" class="buscar-resultados oculto"></div>
+      </div>
+    </div>
+    <div class="barra-der">
+      <button id="btn-regla" class="icono" title="Medir distancia">📏</button>
+      <button id="btn-pos" class="icono" title="Marcar mi posición">📌</button>
+      <button id="btn-capas" class="icono" title="Capas del mapa">🗺️</button>
+      <button id="btn-notas" class="icono" title="Notas del squad">📝</button>
+      <button id="btn-sala" class="icono" title="Sala / jugadores">👥<span id="sala-badge" class="badge oculto"></span></button>
+    </div>
+  </header>
+
+  <!-- ===== Mapa ===== -->
+  <div id="mapa"></div>
+
+  <!-- ===== Pie: coordenadas ===== -->
+  <footer id="pie" class="pie oculto">
+    <span id="pie-coords" title="Coordenadas del juego (X / Z)">— / —</span>
+    <span id="pie-modo" class="pie-modo"></span>
+  </footer>
+
+  <!-- ===== Popover de capas ===== -->
+  <div id="pop-capas" class="popover oculto">
+    <h3>Capas</h3>
+    <label class="radio"><input type="radio" name="capa-base" value="topo" checked /> Topográfico</label>
+    <label class="radio"><input type="radio" name="capa-base" value="sat" /> Satélite</label>
+    <hr />
+    <label class="check"><input id="chk-lugares" type="checkbox" checked /> Nombres de lugares</label>
+    <label class="check"><input id="chk-militar" type="checkbox" checked /> Zonas militares</label>
+    <hr />
+    <label class="campo campo-mini">
+      <span>Cambiar de mapa</span>
+      <select id="sel-mapa">
+        <option value="chernarusplus">Chernarus+</option>
+        <option value="livonia">Livonia</option>
+        <option value="sakhal">Sakhal</option>
+      </select>
+    </label>
+  </div>
+
+  <!-- ===== Panel lateral: sala ===== -->
+  <aside id="panel-sala" class="panel oculto">
+    <div class="panel-cabecera">
+      <h2>Sala</h2>
+      <button class="cerrar" data-cierra="panel-sala">✕</button>
+    </div>
+    <div id="sala-info" class="sala-info">
+      <div id="sala-codigo-caja" class="sala-codigo-caja oculto">
+        <span class="sala-etiqueta">Código de la sala</span>
+        <div class="sala-codigo" id="sala-codigo">— — — —</div>
+        <button id="btn-copiar-link" class="btn btn-mini">🔗 Copiar link de invitación</button>
+      </div>
+      <div id="sala-solo-aviso" class="sala-solo-aviso">
+        Estás explorando <b>solo</b>. Los marcadores se guardan en este dispositivo.
+      </div>
+      <h3>Jugadores</h3>
+      <ul id="lista-jugadores" class="lista-jugadores"></ul>
+      <div class="sala-acciones">
+        <button id="btn-cambiar-sala" class="btn btn-mini">Cambiar de sala</button>
+        <button id="btn-salir-sala" class="btn btn-mini btn-rojo oculto">Salir de la sala</button>
+      </div>
+      <h3>Marcadores en este mapa</h3>
+      <ul id="lista-marcadores" class="lista-marcadores"></ul>
+    </div>
+  </aside>
+
+  <!-- ===== Panel lateral: notas ===== -->
+  <aside id="panel-notas" class="panel oculto">
+    <div class="panel-cabecera">
+      <h2>Notas del squad</h2>
+      <button class="cerrar" data-cierra="panel-notas">✕</button>
+    </div>
+    <div class="notas-nueva">
+      <input id="in-nota" type="text" maxlength="140" placeholder="Ej: hay un stash al norte de Stary…" />
+      <button id="btn-agregar-nota" class="btn btn-mini">➕</button>
+    </div>
+    <ul id="lista-notas" class="lista-notas"></ul>
+  </aside>
+
+  <!-- ===== Diálogo: nuevo marcador ===== -->
+  <div id="dialogo-marcador" class="dialogo oculto">
+    <div class="dialogo-caja">
+      <h3>Nuevo marcador</h3>
+      <p id="dm-coords" class="dm-coords"></p>
+      <div id="dm-tipos" class="dm-tipos"></div>
+      <input id="dm-nombre" type="text" maxlength="30" placeholder="Nombre (opcional)" />
+      <div class="dialogo-acciones">
+        <button id="dm-cancelar" class="btn">Cancelar</button>
+        <button id="dm-agregar" class="btn btn-primario">Agregar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Toast ===== -->
+  <div id="toast" class="toast oculto"></div>
+
+  <script src="js/vendor/leaflet/leaflet.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/datos-mapas.js"></script>
+  <script src="js/data/lugares-chernarus.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
