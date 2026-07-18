@@ -15,6 +15,7 @@ iZurvive, pensada para coordinarse entre amigos.
 - 📝 **Notas del squad** sincronizadas (con check de "hecho")
 - 📏 **Regla de distancia** con tiempo estimado de trote
 - 🔍 **Buscador de lugares** (218 ubicaciones de Chernarus+ con categorías en español, zonas militares destacadas)
+- 🇷🇺 **Nombres bilingües**: cada lugar muestra también su nombre en cirílico, igual que los carteles del juego (se puede apagar en Capas); el buscador encuentra en ambos idiomas
 - 📱 **PWA**: se instala en el celu y cachea mapa y tiles ya vistos
 - 🧭 Coordenadas del juego (X/Z) y cuadrícula estilo iZurvive en el pie
 

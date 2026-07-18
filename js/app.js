@@ -295,6 +295,12 @@
       const tipo = TIPOS_LUGAR[p.t] || TIPOS_LUGAR.paraje;
       const span = document.createElement("span");
       span.textContent = p.n;
+      if (p.ru && p.ru !== p.n) {
+        const ru = document.createElement("span");
+        ru.className = "ru";
+        ru.textContent = p.ru;
+        span.appendChild(ru);
+      }
       const icono = L.divIcon({ className: "lg " + tipo.clase, html: span.outerHTML, iconSize: [0, 0] });
       const marker = L.marker([p.z, p.x], { icon: icono, interactive: false, keyboard: false });
       E.lugares.push({ marker, mz: p.t === "capital" ? 2 : p.mz, militar: p.t === "militar" });
@@ -683,7 +689,7 @@
     resultados.forEach((p) => {
       const b = document.createElement("button");
       const nom = document.createElement("span");
-      nom.textContent = p.n;
+      nom.textContent = p.ru && p.ru !== p.n ? `${p.n} · ${p.ru}` : p.n;
       const tipo = document.createElement("span");
       tipo.className = "tipo";
       tipo.textContent = (TIPOS_LUGAR[p.t] || TIPOS_LUGAR.paraje).etiqueta;
@@ -912,6 +918,14 @@
       if (ev.target.checked) E.capas.lugaresMil.addTo(E.mapa);
       else E.mapa.removeLayer(E.capas.lugaresMil);
     });
+    $("chk-ruso").addEventListener("change", (ev) => {
+      $("mapa").classList.toggle("sin-ruso", !ev.target.checked);
+      localStorage.setItem("dayz_ruso", ev.target.checked ? "1" : "0");
+    });
+    if (localStorage.getItem("dayz_ruso") === "0") {
+      $("chk-ruso").checked = false;
+      $("mapa").classList.add("sin-ruso");
+    }
     $("sel-mapa").addEventListener("change", (ev) => cambiarMapa(ev.target.value));
 
     /* ---- sala ---- */
