@@ -22,6 +22,13 @@ iZurvive, pensada para coordinarse entre amigos.
 
 También funciona **sin sala** (modo solo): los marcadores quedan guardados en el dispositivo.
 
+### Los marcadores no se pierden
+
+- 🗑 **Papelera sincronizada**: borrar un marcador lo manda a la papelera de la sala (se ve quién lo borró); cualquiera puede restaurarlo. Botón **Deshacer** inmediato en pantalla.
+- ⬇⬆ **Exportar/Importar**: copia de seguridad en JSON de todos los marcadores y notas de la sala, desde el panel Sala. Sirve también para migrar de sala.
+- 🔁 **Salas recientes**: el inicio muestra chips con las últimas salas usadas — el código nunca se pierde.
+- Las salas y sus marcadores **no expiran**: quedan en la base hasta que alguien los borre.
+
 ## Stack
 
 HTML/CSS/JS puro + [Leaflet](https://leafletjs.com/) (vendoreado) + Firebase

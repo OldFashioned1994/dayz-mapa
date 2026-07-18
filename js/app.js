@@ -25,6 +25,7 @@
     medirLinea: null,
     medirTip: null,
     marcadores: {},      // id -> datos
+    papelera: {},        // id -> datos borrados (recuperables)
     pendiente: null,     // {x, z} del diálogo de marcador
     tipoElegido: localStorage.getItem("dayz_tipo") || "encuentro",
     capaBase: "topo",
@@ -32,9 +33,19 @@
 
   /* ---------------- Utilidades ---------------- */
   let toastTimer = null;
-  function toast(msg, ms = 2600) {
+  function toast(msg, ms = 2600, accion) {
     const t = $("toast");
     t.textContent = msg;
+    if (accion) {
+      const b = document.createElement("button");
+      b.className = "toast-accion";
+      b.textContent = accion.etiqueta;
+      b.addEventListener("click", () => {
+        t.classList.add("oculto");
+        accion.fn();
+      });
+      t.appendChild(b);
+    }
     t.classList.remove("oculto");
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => t.classList.add("oculto"), ms);
@@ -59,6 +70,23 @@
     const cx = String(Math.max(0, Math.min(999, Math.floor(x / 100)))).padStart(3, "0");
     const cz = String(Math.max(0, Math.min(999, Math.floor((size - z) / 100)))).padStart(3, "0");
     return `${cx}-${cz}`;
+  }
+
+  /* La papelera guarda como máximo 40 marcadores; se recortan los más viejos. */
+  function recortarPapelera(pap) {
+    const claves = Object.keys(pap);
+    if (claves.length <= 40) return;
+    claves
+      .sort((a, b) => (pap[a].bts || 0) - (pap[b].bts || 0))
+      .slice(0, claves.length - 40)
+      .forEach((k) => delete pap[k]);
+  }
+
+  function limpiarBorrado(m) {
+    const copia = Object.assign({}, m);
+    delete copia.bts;
+    delete copia.bpor;
+    return copia;
   }
 
   function leerHash() {
@@ -100,6 +128,7 @@
     const emitirMarcadores = () => cb.marcadores(leer(clave(mapaKey + "_marcadores"), {}));
     const emitirNotas = () => cb.notas(leer(clave("notas"), {}));
     const emitirPos = () => cb.pos(leer(clave(mapaKey + "_pos"), {}));
+    const emitirPapelera = () => cb.papelera(leer(clave(mapaKey + "_papelera"), {}));
 
     return {
       esSala: false,
@@ -107,6 +136,7 @@
         mapaKey = k;
         emitirMarcadores();
         emitirPos();
+        emitirPapelera();
       },
       iniciar() {
         emitirNotas();
@@ -120,9 +150,50 @@
       },
       borrarMarcador(id) {
         const datos = leer(clave(mapaKey + "_marcadores"), {});
+        const m = datos[id];
         delete datos[id];
         guardar(clave(mapaKey + "_marcadores"), datos);
+        if (m) {
+          const pap = leer(clave(mapaKey + "_papelera"), {});
+          pap[id] = Object.assign({}, m, { bts: Date.now(), bpor: E.nombre });
+          recortarPapelera(pap);
+          guardar(clave(mapaKey + "_papelera"), pap);
+          emitirPapelera();
+        }
         emitirMarcadores();
+      },
+      restaurarMarcador(id) {
+        const pap = leer(clave(mapaKey + "_papelera"), {});
+        const m = pap[id];
+        if (!m) return;
+        delete pap[id];
+        guardar(clave(mapaKey + "_papelera"), pap);
+        const datos = leer(clave(mapaKey + "_marcadores"), {});
+        datos[id] = limpiarBorrado(m);
+        guardar(clave(mapaKey + "_marcadores"), datos);
+        emitirPapelera();
+        emitirMarcadores();
+      },
+      importar(d) {
+        let cant = 0;
+        Object.entries(d || {}).forEach(([k, contenido]) => {
+          if (k === "notas") {
+            const notas = leer(clave("notas"), {});
+            Object.entries(contenido || {}).forEach(([id, n]) => {
+              if (!notas[id]) { notas[id] = n; cant++; }
+            });
+            guardar(clave("notas"), notas);
+          } else if (MAPAS[k] && contenido && contenido.marcadores) {
+            const datos = leer(clave(k + "_marcadores"), {});
+            Object.entries(contenido.marcadores).forEach(([id, m]) => {
+              if (!datos[id]) { datos[id] = m; cant++; }
+            });
+            guardar(clave(k + "_marcadores"), datos);
+          }
+        });
+        emitirMarcadores();
+        emitirNotas();
+        return Promise.resolve(cant);
       },
       setPos(x, z) {
         guardar(clave(mapaKey + "_pos"), { [E.uid]: { x, z, ts: Date.now() } });
@@ -199,9 +270,11 @@
         refsMapa = [];
         const rm = raiz.child(`dayz/${k}/marcadores`);
         const rp = raiz.child(`dayz/${k}/pos`);
+        const rpap = raiz.child(`dayz/${k}/papelera`);
         rm.on("value", (s) => cb.marcadores(s.val() || {}));
         rp.on("value", (s) => cb.pos(s.val() || {}));
-        refsMapa.push(rm, rp);
+        rpap.on("value", (s) => cb.papelera(s.val() || {}));
+        refsMapa.push(rm, rp, rpap);
         raiz.child("mapa").set(k);
       },
       agregarMarcador(m) {
@@ -209,7 +282,46 @@
         raiz.child(`dayz/${E.mapaKey}/marcadores`).push(m);
       },
       borrarMarcador(id) {
+        const m = E.marcadores[id];
+        if (m) {
+          raiz
+            .child(`dayz/${E.mapaKey}/papelera/${id}`)
+            .set(Object.assign({}, m, { bts: firebase.database.ServerValue.TIMESTAMP, bpor: E.nombre }));
+          // recortar la papelera si se pasó del límite
+          const pap = Object.assign({}, E.papelera);
+          pap[id] = m;
+          const claves = Object.keys(pap);
+          if (claves.length > 40) {
+            claves
+              .sort((a, b) => (pap[a].bts || 0) - (pap[b].bts || 0))
+              .slice(0, claves.length - 40)
+              .forEach((k) => raiz.child(`dayz/${E.mapaKey}/papelera/${k}`).remove());
+          }
+        }
         raiz.child(`dayz/${E.mapaKey}/marcadores/${id}`).remove();
+      },
+      restaurarMarcador(id) {
+        const m = E.papelera[id];
+        if (!m) return;
+        raiz.child(`dayz/${E.mapaKey}/marcadores/${id}`).set(limpiarBorrado(m));
+        raiz.child(`dayz/${E.mapaKey}/papelera/${id}`).remove();
+      },
+      async importar(d) {
+        let cant = 0;
+        for (const [k, contenido] of Object.entries(d || {})) {
+          if (k === "notas") {
+            for (const [id, n] of Object.entries(contenido || {})) {
+              await raiz.child(`dayz/notas/${id}`).update(n);
+              cant++;
+            }
+          } else if (MAPAS[k] && contenido && contenido.marcadores) {
+            for (const [id, m] of Object.entries(contenido.marcadores)) {
+              await raiz.child(`dayz/${k}/marcadores/${id}`).update(m);
+              cant++;
+            }
+          }
+        }
+        return cant;
       },
       setPos(x, z) {
         raiz.child(`dayz/${E.mapaKey}/pos/${E.uid}`).set({ x, z, ts: firebase.database.ServerValue.TIMESTAMP });
@@ -552,6 +664,16 @@
     pintarListaMarcadores();
   }
 
+  function borrarConDeshacer(id) {
+    const m = E.marcadores[id];
+    const tipo = m ? TIPOS_MARCADOR[m.t] || TIPOS_MARCADOR.encuentro : null;
+    E.store.borrarMarcador(id);
+    toast(`${tipo ? tipo.emoji + " " : ""}Marcador a la papelera`, 6000, {
+      etiqueta: "Deshacer",
+      fn: () => E.store.restaurarMarcador(id),
+    });
+  }
+
   function popupMarcador(id, m) {
     const tipo = TIPOS_MARCADOR[m.t] || TIPOS_MARCADOR.encuentro;
     const cont = document.createElement("div");
@@ -567,12 +689,44 @@
     borrar.className = "pp-btn";
     borrar.textContent = "🗑 Borrar";
     borrar.addEventListener("click", () => {
-      E.store.borrarMarcador(id);
+      borrarConDeshacer(id);
       E.mapa.closePopup();
     });
     acc.appendChild(borrar);
     cont.append(tit, sub, acc);
     return cont;
+  }
+
+  function pintarPapelera(datos) {
+    E.papelera = datos || {};
+    const seccion = $("papelera-seccion");
+    const ul = $("lista-papelera");
+    ul.textContent = "";
+    const entradas = Object.entries(E.papelera);
+    if (!entradas.length) {
+      seccion.classList.add("oculto");
+      return;
+    }
+    seccion.classList.remove("oculto");
+    entradas
+      .sort((a, b) => (b[1].bts || 0) - (a[1].bts || 0))
+      .forEach(([id, m]) => {
+        const tipo = TIPOS_MARCADOR[m.t] || TIPOS_MARCADOR.encuentro;
+        const li = document.createElement("li");
+        li.className = "papelera-item";
+        const txt = document.createElement("span");
+        txt.className = "papelera-texto";
+        txt.textContent = `${tipo.emoji} ${m.n || tipo.nombre}`;
+        const quien = document.createElement("span");
+        quien.className = "mk-autor";
+        quien.textContent = m.bpor ? `borró ${m.bpor}` : "";
+        const rest = document.createElement("button");
+        rest.className = "btn btn-mini";
+        rest.textContent = "↩ Restaurar";
+        rest.addEventListener("click", () => E.store.restaurarMarcador(id));
+        li.append(txt, quien, rest);
+        ul.appendChild(li);
+      });
   }
 
   function pintarListaMarcadores() {
@@ -606,8 +760,8 @@
         const borrar = document.createElement("button");
         borrar.className = "mk-borrar";
         borrar.textContent = "🗑";
-        borrar.title = "Borrar marcador";
-        borrar.addEventListener("click", () => E.store.borrarMarcador(id));
+        borrar.title = "Mover a la papelera";
+        borrar.addEventListener("click", () => borrarConDeshacer(id));
         li.append(ir, borrar);
         ul.appendChild(li);
       });
@@ -856,6 +1010,7 @@
     pos: pintarPosiciones,
     jugadores: pintarJugadores,
     notas: pintarNotas,
+    papelera: pintarPapelera,
   };
 
   async function crearSala(mapaKey) {
@@ -886,6 +1041,41 @@
     return datos;
   }
 
+  function recordarSala(codigo) {
+    let lista;
+    try { lista = JSON.parse(localStorage.getItem("dayz_salas_recientes")) || []; } catch { lista = []; }
+    lista = [codigo].concat(lista.filter((c) => c !== codigo)).slice(0, 4);
+    localStorage.setItem("dayz_salas_recientes", JSON.stringify(lista));
+  }
+
+  function pintarSalasRecientes() {
+    const cont = $("salas-recientes");
+    cont.textContent = "";
+    let recientes;
+    try { recientes = JSON.parse(localStorage.getItem("dayz_salas_recientes")) || []; } catch { recientes = []; }
+    recientes = recientes.filter((c) => c !== E.sala);
+    if (!recientes.length) {
+      cont.classList.add("oculto");
+      return;
+    }
+    const etiqueta = document.createElement("span");
+    etiqueta.className = "recientes-etiqueta";
+    etiqueta.textContent = "Recientes:";
+    cont.appendChild(etiqueta);
+    recientes.forEach((codigo) => {
+      const chip = document.createElement("button");
+      chip.className = "chip-sala";
+      chip.textContent = codigo;
+      chip.title = `Volver a la sala ${codigo}`;
+      chip.addEventListener("click", () => {
+        $("in-codigo").value = codigo;
+        $("btn-unirse").click();
+      });
+      cont.appendChild(chip);
+    });
+    cont.classList.remove("oculto");
+  }
+
   async function entrarEnSala(codigo, mapaKey) {
     if (E.store) E.store.salir();
     E.sala = codigo;
@@ -893,6 +1083,7 @@
     await E.store.iniciar();
     E.store.suscribirMapa(mapaKey);
     localStorage.setItem("dayz_sala", codigo);
+    recordarSala(codigo);
     $("sala-codigo").textContent = codigo.split("").join(" ");
     $("sala-codigo-caja").classList.remove("oculto");
     $("sala-solo-aviso").classList.add("oculto");
@@ -911,6 +1102,49 @@
     $("sala-solo-aviso").classList.remove("oculto");
     $("btn-salir-sala").classList.add("oculto");
     escribirHash();
+  }
+
+  /* ---- copia de seguridad: exportar / importar ---- */
+  async function exportarDatos() {
+    let dayz;
+    if (E.store.esSala) {
+      const snap = await firebase.database().ref(`rooms/${E.sala}/dayz`).get();
+      dayz = snap.val() || {};
+      delete dayz.jugadores; // datos efímeros, no hacen falta en la copia
+    } else {
+      dayz = {};
+      Object.keys(MAPAS).forEach((k) => {
+        const marc = JSON.parse(localStorage.getItem(`dayz_local_${k}_marcadores`) || "{}");
+        if (Object.keys(marc).length) dayz[k] = { marcadores: marc };
+      });
+      dayz.notas = JSON.parse(localStorage.getItem("dayz_local_notas") || "{}");
+    }
+    const contenido = {
+      app: "dayz-mapa",
+      version: 1,
+      sala: E.sala || "solo",
+      fecha: new Date().toISOString(),
+      dayz,
+    };
+    const blob = new Blob([JSON.stringify(contenido, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `mapa-squad-${E.sala || "solo"}-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast("⬇ Copia de seguridad descargada");
+  }
+
+  async function importarDatos(archivo) {
+    try {
+      const texto = await archivo.text();
+      const json = JSON.parse(texto);
+      if (json.app !== "dayz-mapa" || !json.dayz) throw new Error("formato");
+      const cant = await E.store.importar(json.dayz);
+      toast(`⬆ Importados ${cant} elementos de la copia`);
+    } catch (e) {
+      toast("No pude leer esa copia. ¿Es un archivo exportado de acá?");
+    }
   }
 
   function cambiarMapa(mapaKey) {
@@ -982,6 +1216,9 @@
     if (hash.m && MAPAS[hash.m]) $("in-mapa").value = hash.m;
     const salaPrevia = (hash.s || localStorage.getItem("dayz_sala") || "").toUpperCase();
     if (salaPrevia && salaPrevia.length === 4) $("in-codigo").value = salaPrevia;
+
+    // salas recientes: chips para volver con un toque
+    pintarSalasRecientes();
 
     /* ---- pantalla de inicio ---- */
     $("btn-crear").addEventListener("click", async () => {
@@ -1080,8 +1317,17 @@
       entrarSolo(E.mapaKey);
       toast("Saliste de la sala. Modo solo.");
     });
+    $("btn-exportar").addEventListener("click", exportarDatos);
+    $("btn-importar").addEventListener("click", () => $("in-importar").click());
+    $("in-importar").addEventListener("change", (ev) => {
+      if (ev.target.files && ev.target.files[0]) {
+        importarDatos(ev.target.files[0]);
+        ev.target.value = "";
+      }
+    });
     $("btn-cambiar-sala").addEventListener("click", () => {
       cerrarPaneles();
+      pintarSalasRecientes();
       $("btn-volver").classList.remove("oculto");
       $("inicio").classList.remove("oculto");
     });

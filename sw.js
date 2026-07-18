@@ -1,5 +1,5 @@
 /* Service worker: cachea la cáscara de la app y los tiles ya vistos. */
-const VERSION = "mapa-squad-v3";
+const VERSION = "mapa-squad-v4";
 const CACHE_SHELL = VERSION + "-shell";
 const CACHE_TILES = VERSION + "-tiles";
 

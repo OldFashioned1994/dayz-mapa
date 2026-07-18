@@ -46,6 +46,7 @@
           <input id="in-codigo" type="text" maxlength="4" placeholder="CÓDIGO" autocomplete="off" autocapitalize="characters" spellcheck="false" />
           <button id="btn-unirse" class="btn">Unirse</button>
         </div>
+        <div id="salas-recientes" class="salas-recientes oculto"></div>
         <button id="btn-solo" class="btn btn-fantasma">Explorar solo (sin sala)</button>
         <button id="btn-volver" class="btn btn-fantasma oculto">← Volver al mapa</button>
       </div>
@@ -132,6 +133,16 @@
       </div>
       <h3>Marcadores en este mapa</h3>
       <ul id="lista-marcadores" class="lista-marcadores"></ul>
+      <div id="papelera-seccion" class="oculto">
+        <h3>🗑 Papelera (recuperables)</h3>
+        <ul id="lista-papelera" class="lista-papelera"></ul>
+      </div>
+      <h3>Copia de seguridad</h3>
+      <div class="sala-acciones">
+        <button id="btn-exportar" class="btn btn-mini">⬇ Exportar</button>
+        <button id="btn-importar" class="btn btn-mini">⬆ Importar</button>
+        <input id="in-importar" type="file" accept="application/json,.json" class="oculto" />
+      </div>
     </div>
   </aside>
 
