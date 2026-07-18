@@ -1,5 +1,5 @@
 /* Service worker: cachea la cáscara de la app y los tiles ya vistos. */
-const VERSION = "mapa-squad-v1";
+const VERSION = "mapa-squad-v2";
 const CACHE_SHELL = VERSION + "-shell";
 const CACHE_TILES = VERSION + "-tiles";
 
@@ -12,6 +12,9 @@ const SHELL = [
   "js/firebase-config.js",
   "js/datos-mapas.js",
   "js/data/lugares-chernarus.js",
+  "js/data/instalaciones-chernarus.js",
+  "js/data/instalaciones-livonia.js",
+  "js/data/instalaciones-sakhal.js",
   "js/app.js",
   "manifest.webmanifest",
   "assets/iconos/icono-192.png",

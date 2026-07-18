@@ -266,6 +266,7 @@
     if ($("chk-militar").checked) E.capas.lugaresMil.addTo(mapa);
 
     prepararLugares(mapaKey);
+    prepararInstalaciones(mapaKey);
 
     mapa.setView(centro || [cfg.size / 2, cfg.size / 2], zoom || 2);
 
@@ -315,6 +316,100 @@
       const visible = zoom >= l.mz;
       if (visible && !capa.hasLayer(l.marker)) capa.addLayer(l.marker);
       if (!visible && capa.hasLayer(l.marker)) capa.removeLayer(l.marker);
+    });
+    refrescarInstalaciones();
+  }
+
+  /* ----- Capa de instalaciones (datos oficiales de Bohemia) ----- */
+  function instActivas() {
+    try { return JSON.parse(localStorage.getItem("dayz_inst")) || {}; } catch { return {}; }
+  }
+
+  function prepararInstalaciones(mapaKey) {
+    E.instalaciones = [];
+    E.capasInst = {};
+    const cfg = MAPAS[mapaKey];
+    const datos = cfg.instalaciones ? window[cfg.instalaciones] : null;
+    if (!datos) return;
+
+    Object.entries(TIPOS_INSTALACION).forEach(([cat, t]) => {
+      const entradas = datos[cat];
+      if (!entradas) return;
+      const capa = L.layerGroup();
+      const puntos = Array.isArray(entradas) ? entradas : entradas.i || [];
+      if (!puntos.length && !(entradas.z || []).length) return;
+      E.capasInst[cat] = capa;
+
+      // círculos de las zonas tóxicas (radio real del juego)
+      (Array.isArray(entradas) ? [] : entradas.z || []).forEach(([x, z, r]) => {
+        capa.addLayer(
+          L.circle([z, x], {
+            radius: r,
+            color: "#a7d129",
+            weight: 1.5,
+            fillColor: "#a7d129",
+            fillOpacity: 0.18,
+            interactive: false,
+          })
+        );
+      });
+
+      puntos.forEach(([x, z, n]) => {
+        const div = document.createElement("div");
+        div.className = "inst";
+        div.textContent = t.emoji;
+        if (n > 1) {
+          const cant = document.createElement("span");
+          cant.className = "cant";
+          cant.textContent = n;
+          div.appendChild(cant);
+        }
+        const icono = L.divIcon({ className: "inst-icono", html: div.outerHTML, iconSize: [0, 0] });
+        const marker = L.marker([z, x], { icon: icono, keyboard: false });
+        marker.bindTooltip(t.nombre + (n > 1 ? ` ×${n}` : ""), { direction: "top", offset: [0, -10] });
+        E.instalaciones.push({ marker, capa, mz: t.mz });
+      });
+    });
+    pintarTogglesInstalaciones();
+  }
+
+  function refrescarInstalaciones() {
+    if (!E.mapa || !E.capasInst) return;
+    const zoom = E.mapa.getZoom();
+    const activas = instActivas();
+    Object.entries(E.capasInst).forEach(([cat, capa]) => {
+      const activa = activas[cat] !== false;
+      if (activa && !E.mapa.hasLayer(capa)) E.mapa.addLayer(capa);
+      if (!activa && E.mapa.hasLayer(capa)) E.mapa.removeLayer(capa);
+    });
+    E.instalaciones.forEach((i) => {
+      const visible = zoom >= i.mz;
+      if (visible && !i.capa.hasLayer(i.marker)) i.capa.addLayer(i.marker);
+      if (!visible && i.capa.hasLayer(i.marker)) i.capa.removeLayer(i.marker);
+    });
+  }
+
+  function pintarTogglesInstalaciones() {
+    const cont = $("capas-instalaciones");
+    cont.textContent = "";
+    const activas = instActivas();
+    Object.entries(TIPOS_INSTALACION).forEach(([cat, t]) => {
+      if (!E.capasInst || !E.capasInst[cat]) return; // el mapa actual no tiene esta categoría
+      const label = document.createElement("label");
+      label.className = "check";
+      const chk = document.createElement("input");
+      chk.type = "checkbox";
+      chk.checked = activas[cat] !== false;
+      chk.addEventListener("change", () => {
+        const a = instActivas();
+        a[cat] = chk.checked;
+        localStorage.setItem("dayz_inst", JSON.stringify(a));
+        refrescarInstalaciones();
+      });
+      const texto = document.createElement("span");
+      texto.textContent = `${t.emoji} ${t.nombre}`;
+      label.append(chk, texto);
+      cont.appendChild(label);
     });
   }
 

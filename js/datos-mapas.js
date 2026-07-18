@@ -8,6 +8,7 @@ window.MAPAS = {
     topo: "https://static.xam.nu/dayz/maps/chernarusplus/1.27/topographic/{z}/{x}/{y}.webp",
     sat: "https://static.xam.nu/dayz/maps/chernarusplus/1.27/satellite/{z}/{x}/{y}.webp",
     lugares: "LUGARES_CHERNARUS",
+    instalaciones: "INSTALACIONES_CHERNARUS",
   },
   livonia: {
     nombre: "Livonia",
@@ -16,6 +17,7 @@ window.MAPAS = {
     topo: "https://static.xam.nu/dayz/maps/livonia/1.27/topographic/{z}/{x}/{y}.webp",
     sat: "https://static.xam.nu/dayz/maps/livonia/1.27/satellite/{z}/{x}/{y}.webp",
     lugares: null,
+    instalaciones: "INSTALACIONES_LIVONIA",
   },
   sakhal: {
     nombre: "Sakhal",
@@ -24,7 +26,23 @@ window.MAPAS = {
     topo: "https://static.xam.nu/dayz/maps/sakhal/1.27/topographic/{z}/{x}/{y}.webp",
     sat: "https://static.xam.nu/dayz/maps/sakhal/1.27/satellite/{z}/{x}/{y}.webp",
     lugares: null,
+    instalaciones: "INSTALACIONES_SAKHAL",
   },
+};
+
+/* Instalaciones (datos oficiales de Bohemia: DayZ-Central-Economy).
+   mz = zoom mínimo para mostrar el ícono. */
+window.TIPOS_INSTALACION = {
+  toxica: { emoji: "☣️", nombre: "Zona tóxica (NBC)", mz: 3 },
+  militar: { emoji: "🪖", nombre: "Instalación militar", mz: 4 },
+  heli: { emoji: "🚁", nombre: "Posible heli caído", mz: 5 },
+  combustible: { emoji: "⛽", nombre: "Estación de servicio", mz: 4 },
+  hospital: { emoji: "🏥", nombre: "Hospital", mz: 5 },
+  policia: { emoji: "🚓", nombre: "Comisaría", mz: 5 },
+  agua: { emoji: "💧", nombre: "Bomba de agua", mz: 6 },
+  castillo: { emoji: "🏰", nombre: "Castillo", mz: 4 },
+  iglesia: { emoji: "⛪", nombre: "Iglesia", mz: 6 },
+  termal: { emoji: "♨️", nombre: "Aguas termales", mz: 4 },
 };
 
 /* Tipos de marcador del squad */

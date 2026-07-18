@@ -515,6 +515,42 @@ input, select { font-family: inherit; }
 .lg-militar span .ru::before { content: ""; }
 #mapa.sin-ruso .lg span .ru { display: none; }
 
+/* Instalaciones (íconos oficiales) */
+.inst-icono { background: none; border: none; }
+.inst {
+  position: relative;
+  display: inline-block;
+  transform: translate(-50%, -50%);
+  font-size: 18px;
+  line-height: 1;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 1));
+}
+.inst .cant {
+  position: absolute;
+  top: -7px;
+  right: -10px;
+  background: var(--panel);
+  border: 1px solid var(--borde);
+  color: var(--texto);
+  font-size: 9px;
+  font-weight: 700;
+  min-width: 14px;
+  height: 14px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+}
+.inst-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.inst-grid .check { padding: 3px 0; font-size: 13px; }
+
 /* Medición */
 .medir-tip {
   background: var(--panel);

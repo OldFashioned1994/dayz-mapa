@@ -16,6 +16,7 @@ iZurvive, pensada para coordinarse entre amigos.
 - 📏 **Regla de distancia** con tiempo estimado de trote
 - 🔍 **Buscador de lugares** (218 ubicaciones de Chernarus+ con categorías en español, zonas militares destacadas)
 - 🇷🇺 **Nombres bilingües**: cada lugar muestra también su nombre en cirílico, igual que los carteles del juego (se puede apagar en Capas); el buscador encuentra en ambos idiomas
+- 🪖 **Capa de instalaciones con datos oficiales de Bohemia** ([DayZ-Central-Economy](https://github.com/BohemiaInteractive/DayZ-Central-Economy)) en los 3 mapas: instalaciones militares (agrupadas con contador), posibles helis caídos, zonas tóxicas permanentes con su radio real (Rify, Pavlovo, Radunin, Lukov, volcán de Sakhal), estaciones de servicio, hospitales, comisarías, bombas de agua, castillos, iglesias y aguas termales — cada categoría con su toggle en Capas
 - 📱 **PWA**: se instala en el celu y cachea mapa y tiles ya vistos
 - 🧭 Coordenadas del juego (X/Z) y cuadrícula estilo iZurvive en el pie
 
