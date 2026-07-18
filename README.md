@@ -16,7 +16,9 @@ iZurvive, pensada para coordinarse entre amigos.
 - 📏 **Regla de distancia** con tiempo estimado de trote
 - 🔍 **Buscador de lugares** (218 ubicaciones de Chernarus+ con categorías en español, zonas militares destacadas)
 - 🇷🇺 **Nombres bilingües**: cada lugar muestra también su nombre en cirílico, igual que los carteles del juego (se puede apagar en Capas); el buscador encuentra en ambos idiomas
-- 🪖 **Capa de instalaciones con datos oficiales de Bohemia** ([DayZ-Central-Economy](https://github.com/BohemiaInteractive/DayZ-Central-Economy)) en los 3 mapas: instalaciones militares (agrupadas con contador), posibles helis caídos, zonas tóxicas permanentes con su radio real (Rify, Pavlovo, Radunin, Lukov, volcán de Sakhal), estaciones de servicio, hospitales, comisarías, bombas de agua, castillos, iglesias y aguas termales — cada categoría con su toggle en Capas
+- 🪖 **Capa de instalaciones con datos oficiales de Bohemia** ([DayZ-Central-Economy](https://github.com/BohemiaInteractive/DayZ-Central-Economy)) en los 3 mapas: instalaciones militares (agrupadas de lejos, **edificio por edificio a zoom alto**), posibles helis caídos, zonas tóxicas permanentes con su radio real (Rify, Pavlovo, Radunin, Lukov, volcán de Sakhal), spawns de jugador por zona, estaciones de servicio, hospitales, comisarías, bombas de agua, castillos, iglesias, faros, torres de caza, vehículos/botes y aguas termales — cada categoría con su toggle en Capas
+- 🐺 **Territorios de animales oficiales**: manadas de lobos, osos y zonas de ciervos/jabalíes (de los `env/*_territories.xml` del juego)
+- 🔢 **Cuadrícula estilo iZurvive** con etiquetas numéricas en los bordes (1 km de lejos, 100 m de cerca) y **búsqueda por coordenadas**: `10434/5928` o cuadrícula `104-059`
 - 📱 **PWA**: se instala en el celu y cachea mapa y tiles ya vistos
 - 🧭 Coordenadas del juego (X/Z) y cuadrícula estilo iZurvive en el pie
 

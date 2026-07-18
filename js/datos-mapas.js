@@ -45,9 +45,12 @@ window.TIPOS_INSTALACION = {
   iglesia: { emoji: "⛪", nombre: "Iglesia", mz: 6 },
   faro: { emoji: "🗼", nombre: "Faro", mz: 5 },
   termal: { emoji: "♨️", nombre: "Aguas termales", mz: 4 },
+  lobo: { emoji: "🐺", nombre: "Territorio de lobos", mz: 5 },
+  oso: { emoji: "🐻", nombre: "Territorio de osos", mz: 5 },
+  fauna: { emoji: "🦌", nombre: "Ciervos y jabalíes", mz: 6, def: false },
   vehiculo: { emoji: "🚙", nombre: "Posible spawn de vehículo", mz: 6, def: false },
   bote: { emoji: "🛶", nombre: "Posible spawn de bote", mz: 6, def: false },
-  caza: { emoji: "🦌", nombre: "Torre de caza", mz: 7, def: false },
+  caza: { emoji: "🏹", nombre: "Torre de caza", mz: 7, def: false },
 };
 
 /* Tipos de marcador del squad */

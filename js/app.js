@@ -391,11 +391,14 @@
 
     E.capas.lugares = L.layerGroup();
     E.capas.lugaresMil = L.layerGroup();
+    E.capas.cuadricula = L.layerGroup();
     E.capas.marcadores = L.layerGroup().addTo(mapa);
     E.capas.jugadores = L.layerGroup().addTo(mapa);
     E.capas.medir = L.layerGroup().addTo(mapa);
     if ($("chk-lugares").checked) E.capas.lugares.addTo(mapa);
     if ($("chk-militar").checked) E.capas.lugaresMil.addTo(mapa);
+    if ($("chk-cuadricula").checked) E.capas.cuadricula.addTo(mapa);
+    E.gridPaso = null;
 
     prepararLugares(mapaKey);
     prepararInstalaciones(mapaKey);
@@ -403,6 +406,8 @@
     mapa.setView(centro || [cfg.size / 2, cfg.size / 2], zoom || 2);
 
     mapa.on("zoomend", refrescarLugares);
+    mapa.on("zoomend", refrescarCuadricula);
+    mapa.on("moveend", pintarEtiquetasCuadricula);
     mapa.on("moveend", () => { escribirHash(); if (ES_TACTIL) mostrarCoords(mapa.getCenter()); });
     mapa.on("mousemove", (ev) => mostrarCoords(ev.latlng));
     mapa.on("click", clickEnMapa);
@@ -414,7 +419,59 @@
     });
 
     refrescarLugares();
+    refrescarCuadricula();
     escribirHash();
+  }
+
+  /* ----- Cuadrícula estilo iZurvive (100 m / 1 km según zoom) ----- */
+  function refrescarCuadricula() {
+    if (!E.mapa || !E.capas.cuadricula) return;
+    const size = MAPAS[E.mapaKey].size;
+    const zoom = E.mapa.getZoom();
+    const paso = zoom >= 7 ? 100 : 1000;
+    if (E.gridPaso !== paso) {
+      E.gridPaso = paso;
+      E.capas.cuadricula.clearLayers();
+      const finas = [], gruesas = [];
+      for (let v = 0; v <= size; v += paso) {
+        const destino = v % 1000 === 0 ? gruesas : finas;
+        destino.push([[0, v], [size, v]]); // línea vertical (x = v)
+        destino.push([[v, 0], [v, size]]); // línea horizontal (z = v)
+      }
+      const estilo = { weight: 1, interactive: false, color: "#2a3540" };
+      if (finas.length) {
+        E.capas.cuadricula.addLayer(L.polyline(finas, Object.assign({}, estilo, { opacity: 0.25, dashArray: "2 5" })));
+      }
+      E.capas.cuadricula.addLayer(L.polyline(gruesas, Object.assign({}, estilo, { opacity: 0.4, dashArray: "4 6" })));
+    }
+    pintarEtiquetasCuadricula();
+  }
+
+  function pintarEtiquetasCuadricula() {
+    const cont = $("grid-etiquetas");
+    cont.textContent = "";
+    if (!E.mapa || !E.mapa.hasLayer(E.capas.cuadricula)) return;
+    const size = MAPAS[E.mapaKey].size;
+    const paso = E.mapa.getZoom() >= 7 ? 100 : 1000;
+    const b = E.mapa.getBounds();
+    const poner = (px, py, texto) => {
+      const s = document.createElement("span");
+      s.className = "grid-etq";
+      s.style.left = px + "px";
+      s.style.top = py + "px";
+      s.textContent = texto;
+      cont.appendChild(s);
+    };
+    const desdeX = Math.max(0, Math.ceil(b.getWest() / paso) * paso);
+    for (let x = desdeX; x <= Math.min(size, b.getEast()); x += paso) {
+      const px = E.mapa.latLngToContainerPoint([0, x]).x;
+      if (px > 30 && px < window.innerWidth - 30) poner(px - 11, 58, String(Math.floor(x / 100)).padStart(3, "0"));
+    }
+    const desdeZ = Math.min(size, Math.floor(b.getNorth() / paso) * paso);
+    for (let z = desdeZ; z >= Math.max(0, b.getSouth()); z -= paso) {
+      const py = E.mapa.latLngToContainerPoint([z, 0]).y;
+      if (py > 80 && py < window.innerHeight - 44) poner(6, py - 9, String(Math.floor((size - z) / 100)).padStart(3, "0"));
+    }
   }
 
   function mostrarCoords(latlng) {
@@ -501,7 +558,7 @@
         );
       });
 
-      puntos.forEach(([x, z, n, zona]) => {
+      const crearIcono = ([x, z, n, zona], mz, Mz) => {
         const div = document.createElement("div");
         div.className = "inst";
         div.textContent = t.emoji;
@@ -515,8 +572,16 @@
         const marker = L.marker([z, x], { icon: icono, keyboard: false });
         const etiqueta = t.nombre + (zona ? ` · ${zona}` : "") + (n > 1 ? ` ×${n}` : "");
         marker.bindTooltip(etiqueta, { direction: "top", offset: [0, -10] });
-        E.instalaciones.push({ marker, capa, mz: t.mz });
-      });
+        E.instalaciones.push({ marker, capa, mz, Mz });
+      };
+
+      if (cat === "militar" && datos.militarDet) {
+        // clusters hasta zoom 6; a partir de zoom 7, cada edificio militar
+        puntos.forEach((p) => crearIcono(p, t.mz, 6));
+        datos.militarDet.forEach((p) => crearIcono(p, 7));
+      } else {
+        puntos.forEach((p) => crearIcono(p, t.mz));
+      }
     });
     pintarTogglesInstalaciones();
   }
@@ -530,7 +595,7 @@
       if (!activa && E.mapa.hasLayer(capa)) E.mapa.removeLayer(capa);
     });
     E.instalaciones.forEach((i) => {
-      const visible = zoom >= i.mz;
+      const visible = zoom >= i.mz && (!i.Mz || zoom <= i.Mz);
       if (visible && !i.capa.hasLayer(i.marker)) i.capa.addLayer(i.marker);
       if (!visible && i.capa.hasLayer(i.marker)) i.capa.removeLayer(i.marker);
     });
@@ -966,12 +1031,58 @@
      BUSCADOR DE LUGARES
      ============================================================ */
 
+  function resultadoIr(cont, etiqueta, x, z) {
+    const b = document.createElement("button");
+    const nom = document.createElement("span");
+    nom.textContent = `📍 ${etiqueta}`;
+    const tipo = document.createElement("span");
+    tipo.className = "tipo";
+    tipo.textContent = "Ir a coordenadas";
+    b.append(nom, tipo);
+    b.addEventListener("click", () => {
+      $("buscar-resultados").classList.add("oculto");
+      E.mapa.flyTo([z, x], Math.max(E.mapa.getZoom(), 7), { duration: 0.8 });
+    });
+    cont.appendChild(b);
+  }
+
   function buscarLugares(q) {
     const cfg = MAPAS[E.mapaKey];
     const datos = cfg.lugares ? window[cfg.lugares] : null;
     const cont = $("buscar-resultados");
     cont.textContent = "";
-    if (!datos || !q || q.length < 2) {
+    if (!q || q.length < 2) {
+      cont.classList.add("oculto");
+      return;
+    }
+
+    // coordenadas: "10434 5928", "10434/5928" o cuadrícula "104-059"
+    const size = cfg.size;
+    const mc = q.trim().match(/^(\d{1,5})(?:[.,]\d+)?\s*[\/,;\s-]\s*(\d{1,5})(?:[.,]\d+)?$/);
+    if (mc) {
+      const a = +mc[1], b = +mc[2];
+      let hay = false;
+      if (a <= size && b <= size && (a > 999 || b > 999)) {
+        resultadoIr(cont, `${a} / ${b} (metros del juego)`, a, b);
+        hay = true;
+      }
+      if (a <= Math.floor(size / 100) && b <= Math.floor(size / 100)) {
+        const gx = a * 100 + 50;
+        const gz = size - (b * 100 + 50);
+        resultadoIr(cont, `Cuadrícula ${String(a).padStart(3, "0")}-${String(b).padStart(3, "0")}`, gx, gz);
+        hay = true;
+      }
+      if (a <= size && b <= size && a <= 999 && b <= 999 && !hay) {
+        resultadoIr(cont, `${a} / ${b} (metros del juego)`, a, b);
+        hay = true;
+      }
+      if (hay) {
+        cont.classList.remove("oculto");
+        return;
+      }
+    }
+
+    if (!datos) {
       cont.classList.add("oculto");
       return;
     }
@@ -1154,7 +1265,7 @@
     $("sel-mapa").value = mapaKey;
     const buscador = $("in-buscar");
     buscador.value = "";
-    buscador.placeholder = MAPAS[mapaKey].lugares ? "Buscar lugar…" : "Buscar (solo en Chernarus+)";
+    buscador.placeholder = MAPAS[mapaKey].lugares ? "Buscar lugar o coords…" : "Buscar coordenadas…";
     toast(`Mapa: ${MAPAS[mapaKey].nombre}`);
   }
 
@@ -1181,7 +1292,7 @@
     }
     crearMapa(mapaKey, centro, zoom);
     $("sel-mapa").value = mapaKey;
-    $("in-buscar").placeholder = MAPAS[mapaKey].lugares ? "Buscar lugar…" : "Buscar (solo en Chernarus+)";
+    $("in-buscar").placeholder = MAPAS[mapaKey].lugares ? "Buscar lugar o coords…" : "Buscar coordenadas…";
     if (ES_TACTIL && !localStorage.getItem("dayz_hint_lp")) {
       localStorage.setItem("dayz_hint_lp", "1");
       toast("💡 Mantené apretado el mapa para poner un marcador", 4500);
@@ -1297,6 +1408,13 @@
       $("mapa").classList.toggle("sin-ruso", !ev.target.checked);
       localStorage.setItem("dayz_ruso", ev.target.checked ? "1" : "0");
     });
+    $("chk-cuadricula").addEventListener("change", (ev) => {
+      if (ev.target.checked) E.capas.cuadricula.addTo(E.mapa);
+      else E.mapa.removeLayer(E.capas.cuadricula);
+      localStorage.setItem("dayz_grid", ev.target.checked ? "1" : "0");
+      pintarEtiquetasCuadricula();
+    });
+    if (localStorage.getItem("dayz_grid") === "0") $("chk-cuadricula").checked = false;
     if (localStorage.getItem("dayz_ruso") === "0") {
       $("chk-ruso").checked = false;
       $("mapa").classList.add("sin-ruso");
